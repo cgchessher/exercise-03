@@ -1,0 +1,173 @@
+---
+title: "EDA-challenge.qmd"
+format: html
+---
+
+### Exercise 3 - ADA
+
+```{r}
+# Loading data
+library(tidyverse)
+f <- "https://raw.githubusercontent.com/difiore/ada-datasets/main/data-wrangling.csv"
+d <- read_csv(f, col_names = TRUE)
+
+#Parsing data
+names(d)
+dim(d)
+summary(d)
+```
+
+## Coding Challenges
+
+# Challenge 1 
+```{r}
+
+## Create a new variable named BSD (body size dimorphism) which is the ratio of average male to female body mass. 
+
+### Using dplyr, we create a new column called BSD by first piping the dataset d, then piping d to argument mutate (dplyr) and defining BSD as the ratio of avg male to female body mass
+
+d <- d |> mutate(BSD = paste0(Body_mass_male_mean/Body_mass_female_mean))
+
+# extra steps - checking results 
+summary(d$BSD) # noticed that BSD is classified as character, not numeric, so changing that in the next line 
+d$BSD <- as.numeric(d$BSD) 
+mean(d$BSD, na.rm = TRUE) # testing that a function on numeric variable works to make sure BSD is no longer a character
+```
+# Challenge 2
+```{r}
+
+## Create a new variable named sex_ratio, which is the ratio of the number of adult females to adult males in a typical group.
+
+### Similar workflow to challenge one above. Using dplyr to pipe in d, then piping to mutate function to make new variable sex_ratio equal to the number of adult females divided by the number of adult males in a typical group (on average). 
+
+names(d)
+d <- d |> mutate(sex_ratio = paste0(AdultFemale/AdultMales))
+
+# extra steps - checking results 
+
+d$sex_ratio <- as.numeric(d$sex_ratio) 
+mean(d$sex_ratio, na.rm = TRUE) # testing that a function on numeric variable works to make sure sex_ratio is no longer a character
+```
+
+# Challenge 3
+```{r} 
+
+## Create a new variable named DI (for “defensibility index”), which is the ratio of day range length to the *diameter* of the home range. 
+
+### Similar workflow again. Using dplyr to pipe in d, then piping to mutate function to make new variable DI equal to day range length divided by the diameter of the home range, but making sure to calculate the diameter.
+
+### From assignment: You will need to calculate the latter for each species from the size of its home range! For the purposes of this assignment, presume that the home range is a circle and use the formula for the area of a circle: . The variable pi (note, without parentheses!) will return the value of  as a constant built-in to R, and the function sqrt() can be used to calculate the square root.
+
+# Presuming that HomeRange_km2 is the area of a circle (A), rearranging A=pi*r^2 to r = sqrt(A/pi), and 2r = d.
+names(d)
+d <- d |> mutate(HomeRange_d = paste0(2 * (sqrt(HomeRange_km2/pi))))
+d$HomeRange_d <- as.numeric(d$HomeRange_d) 
+
+#now making new variable DI based on HomeRange_d
+d <- d |> mutate(DI = paste0(DayLength_km/HomeRange_d))
+
+# extra steps - checking results 
+d$DI <- as.numeric(d$DI) 
+mean(d$DI, na.rm = TRUE) # testing that a function on numeric variable works to make sure DI is no longer a character
+```
+
+# Challenge 4
+```{r}
+
+## Plot the relationship between day range length (y axis) and time spent moving (x axis), for these primate species overall and by family (i.e., a different plot for each family, e.g., by using faceting: + facet_wrap()). Do species that spend more time moving travel farther overall? How about within any particular primate family? Should you transform either of these variables?
+
+# Here I am using ggplot to plot the data in a chart, then specifying I want the points added, but to exclude NAs, and then specifying that I want a line of best fit added using a linear model.
+
+p <- ggplot(d, aes(x = Move, y = DayLength_km)) +
+  geom_point(na.rm = TRUE) + geom_smooth(method = lm)
+
+p 
+
+### noticed that x-axis range was off, so now going to try filtering to a subset of data where both x and y values exist for each entry using inverse (!) function of is.na
+
+d_complete <- d |>
+  subset(!is.na(Move) & !is.na(DayLength_km))
+
+p <- ggplot(d_complete, aes(x = Move, y = DayLength_km)) +
+  geom_point() + geom_smooth(method = lm)
+
+p ### Fixed range!
+
+### subsetting by Family
+
+p <- ggplot(d_complete, aes(x = Move, y = DayLength_km)) +
+  geom_point() + geom_smooth(method = lm) + facet_wrap("Family")
+
+p
+
+
+
+```
+Overall across species, there is a positive relationship between movement time (x-axis) and km traveled throughout the day. The pattern becomes more messy when we look at a more granular scale (Family), because not all families had good sampling. We see the pattern hold for families like Atelidae, but the relationship seems to not hold as well for Cercopithecidae and Lemuridae, while other families had small sample sizes. If we log-transformed movement time, we would end up potentially able to discern patterns easier in the visualization.
+
+
+# Challenge 5
+
+```{r}
+
+## Plot the relationship between day range length (y axis) and group size (x axis), overall and by family. Do species that live in larger groups travel farther overall? How about within any particular primate family? Should you transform either of these variables?
+
+# Here I am using ggplot to plot the data in a chart, then specifying I want the points added, but to exclude NAs, and then specifying that I want a line of best fit added using a linear model.
+p <- ggplot(d, aes(x = MeanGroupSize, y = DayLength_km)) +
+  geom_point(na.rm = TRUE) + geom_smooth(method = lm)
+
+p 
+
+# subset by family
+p <- p + facet_wrap("Family")
+
+p
+
+```
+Yes, species that live in larger groups travel further when we look across species. Within particular families, speaking for those that have enough sampling effort, the trend holds for Hominidae, Cebidae, Atelidae, Cercopithecidae, Pitheciidae, and potentially for Lemuridae, although there is less variance in group size, so the pattern is less clear. Additionally, we could log-transform mean group size to clarify the pattern. 
+
+# Challenge 6
+
+```{r}
+
+# Plot the relationship between canine size dimorphism (y axis) and body size dimorphism (x axis) overall and by family. Do taxa with greater size dimorphism also show greater canine dimorphism?
+
+# Here I am using ggplot to plot the data in a chart, then specifying I want the points added, but to exclude NAs, and then specifying that I want a line of best fit added using a linear model.
+
+p <- ggplot(d, aes(x = BSD, y = Canine_Dimorphism)) +
+  geom_point(na.rm = TRUE) + geom_smooth(method = lm)
+p
+
+# subset by family
+p <- p + facet_wrap("Family")
+p
+
+```
+Yes, taxa overall show greater canine dimorphism with greater body size dimorphism (BSD). Notably, the trend tends to hold across families except for in Atelidae, where the reverse is true.
+
+# Challenge 7
+```{r}
+# Create a new variable named diet_strategy that is “frugivore” if fruits make up >50% of the diet, “folivore” if leaves make up >50% of the diet, and “omnivore” if diet data are available, but neither of these is true (i.e., these values are not NA). Then, do boxplots of group size for species with different dietary strategies, omitting the category NA from your plot. Do frugivores live in larger groups than folivores?
+
+
+# Here I am using the mutate function to create a new column, then using the function case_when because there are three categorical options, not just an if/then statement. To do this I call the variables by name and specify the condition (> 50) for each to make their category. For omnivores, I have specified that if the previous two conditions are not fulfilled, but there IS data for Fruit, and there IS data for Leaves, then specify the entry as an omnivore.
+
+d <- d |> mutate(diet_strategy = case_when(Fruit > 50 ~ "frugivore", Leaves > 50 ~ "folivore", !is.na(Fruit) | !is.na(Leaves) ~ "omnivore")) 
+
+# BOXPLOTS!
+# Now combining the piping function into the filter function, again using the inverse (!) is.na strategy to filter the data to only entries with data for both diet and mean group size. Then specifying I want a boxplot with geom_boxplot(), and then adding new labels with labs() function. 
+boxplot <- d |>
+  filter(!is.na(diet_strategy), !is.na(MeanGroupSize)) |>
+  ggplot(aes(x = diet_strategy, y = MeanGroupSize)) +
+  geom_boxplot() +
+  labs(
+    x = "Diet strategy",
+    y = "Mean group size"
+  )
+
+boxplot
+
+```
+No, frugivores do not seem to live in larger groups than foliovores, although there are some outliers in the frugivore data which have very large (>50) group members on average!
+
+
